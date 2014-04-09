@@ -1,3 +1,3 @@
 RepeatExplorer
 ==============
-Sctipt(s) related to analysing RepeatExplorer data
+Script(s) related to analysing RepeatExplorer data
