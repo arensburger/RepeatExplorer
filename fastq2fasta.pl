@@ -12,8 +12,14 @@ while (my $l1 = <INPUT>) {
 	my $l4 = <INPUT>;
 	<INPUT>;
 	<INPUT>;
-	print ">$l1", '\1', "\n";
-	print $l2;
-	print ">$l3", '\2', "\n";
-	print $l4;
+	
+	if ($l1 eq $l3) { 
+		print ">$l1", '\1', "\n";
+		print $l2;
+		print ">$l3", '\2', "\n";
+		print $l4;
+	}
+	else {
+		die "sequences are not the same\n$l1\n$l3\n";
+	}
 }
