@@ -29,7 +29,7 @@ if ($?){
 
 ### setup global variables
 my @clusterdir = split (" ", `find $datadir/seqClust/clustering/clusters/ -name "dir_*"`);
-my %clusterevidence; # cluster name as key, [0] category, [1] number of reads in cluster [2] evidendence of classification based reads [3] evidence based on contigs
+my %clusterevidence; # cluster name as key, [0] category, [1] number of reads in cluster [2] evidendence of classification based reads [3] evidence based on contigs [4] number of hits based on tblastx of RM
 
 
 ### Step 1 determine which clusters can be assigned to a category based on reads RM 
@@ -101,7 +101,7 @@ foreach my $cluster (keys %clusterevidence) {
 		### add all the contigs into a temporary file ###
 		my $rm_blastinput = File::Temp->new( UNLINK => 1, SUFFIX => '.fa' );
 		open (OUTPUT, ">$rm_blastinput") or die "cannot open output file $rm_blastinput";
-		open (INPUT, `find $cluster -name *.minRD5_sort-length`) or die "cannot open file `find $cluster -name *.minRD5_sort-length`";
+		open (INPUT, `find $cluster -name *.minRD5_sort-GR`) or die "cannot open file `find $cluster -name *.minRD5_sort-length`";
 		
 		## read the data from the file
 		# process first line	
@@ -129,7 +129,7 @@ foreach my $cluster (keys %clusterevidence) {
 		close INPUT;
 		close OUTPUT;
 
-		# perform the blasts
+		# perform the blast on RM using nucleotide blast
 		my $rm_blastoutput = "$clusteroutput/contig-rm-blast.txt";
 		`blastn -query $rm_blastinput -db $REPBASEDATABASE -out $rm_blastoutput -outfmt 6 -evalue 0.1 -num_alignments 1 -num_threads $NUMBEROFCPUS 2>/dev/null`;
 		# parse blast output
@@ -147,24 +147,82 @@ foreach my $cluster (keys %clusterevidence) {
 		my $numrepeats = keys %repeats;
 
 		if ($numhitcontigs > 0) {
-			$rmblastres = "of $numcontigs contigs $numhitcontigs matched repeats\t";
+			$rmblastres = "of $numcontigs contigs $numhitcontigs matched repeats: ";
 			foreach my $key (keys %repeats) {
-				$rmblastres .= "$key\t";
+				$rmblastres .= "$key ";
 			}
 			$clusterevidence{$cluster}[0] = "contig RM hit";
 			$clusterevidence{$cluster}[3] = $rmblastres;
 		}
+
+		# perform the blast on RM using tblastx
+		my $tblastxoutput = "$clusteroutput/rmtblastx.xml";
+		`tblastx -query $rm_blastinput -db $REPBASEDATABASE -out $tblastxoutput -outfmt 5 -evalue 0.1 -num_alignments 1 -num_threads $NUMBEROFCPUS 2>/dev/null`;
+		my $tblastxsimple = "$clusteroutput/rmtblastx.xls";
+		open (OUTPUT, ">$tblastxsimple") or die "cannot create file $tblastxsimple\n";
+		my $counter = 0;
+		my $searchin = new Bio::SearchIO( -tempfile => 1,
+				 		 -format => 'blastxml',
+				 		 -file   => $tblastxoutput);
+		while( my $result = $searchin->next_result ) {
+			my $query_name = $result->query_description;
+			while (my $hit = $result->next_hit) {
+				my $hit_name = $hit->name;
+				my $hsp = $hit->next_hsp;
+				my $evalue = $hsp->evalue;
+				my $description = $hit->description;
+				my $start_query = $hsp->start('query');
+				my $end_query = $hsp->end('query');
+				$counter++;
+				print OUTPUT "$query_name\t$hit_name\t$evalue\t$start_query\t$end_query\n";
+			}
+
+		}
+		if ($counter) {
+			$clusterevidence{$cluster}[4] = $counter;
+		}
+		close OUTPUT;
+
 	}
 }
 
 ### Step 2-2 run blast on remaining clusters
 foreach my $cluster (keys %clusterevidence) { 
 	my $clusteroutput =  $outputdirectory . "\/" . shortname($cluster);
-	if ($clusterevidence{$cluster}[0] eq 0) {
-		my $blastoutput = "$clusteroutput/contig-nt-blast.txt";
-		my $blastinput = `find $cluster -name *.minRD5_sort-length`;
+	if (($clusterevidence{$cluster}[0] eq 0) or ($clusterevidence{$cluster}[0] eq "contig RM hit")) {
+		my $blastoutput = "$clusteroutput/contig-nt-blast.xml";
+		my $blastinput = `find $cluster -name *.minRD5_sort-GR`;
 		chomp $blastinput;
-		`blastn -query $blastinput -db $NTDATABASE -out $blastoutput -evalue 0.001 -num_threads $NUMBEROFCPUS 2>/dev/null`;	
+		`blastn -query $blastinput -db $NTDATABASE -out $blastoutput -evalue 0.001 -num_threads $NUMBEROFCPUS -outfmt 5 2>/dev/null`;	
+
+		# make short output version
+		if (-e $blastoutput) { #test if the blast created a file or not
+			my $counter = 0;
+			my $summaryoutput = "$clusteroutput/contig-nt-blast.xls";
+			open (OUTPUT, ">$summaryoutput") or die "cannot create file $summaryoutput\n";
+			print OUTPUT "name\tevalue\thit name\tquery start\tquery end\n";
+			my $searchin = new Bio::SearchIO( -tempfile => 1,
+					 		 -format => 'blastxml',
+					 		 -file   => $blastoutput);
+			while( my $result = $searchin->next_result ) {
+				my $query_name = $result->query_description;
+				while (my $hit = $result->next_hit) {
+					my $hit_name = $hit->name;
+					my $hsp = $hit->next_hsp;
+					my $evalue = $hsp->evalue;
+					my $description = $hit->description;
+					my $start_query = $hsp->start('query');
+					my $end_query = $hsp->end('query');
+					$counter++;
+					print OUTPUT "$query_name\t$evalue\t$description\t$start_query\t$end_query\n";
+				}
+	
+			}
+			if ($counter) {
+				$clusterevidence{$cluster}[5] = $counter;
+			}
+			close OUTPUT;
+		}
 	}
 }
 
@@ -175,11 +233,11 @@ open (OUTPUT, ">$summaryfile") or die "cannot create file $summaryfile\n";
 foreach my $cluster (sort {$clusterevidence{$b}[1] <=> $clusterevidence{$a}[1]} (keys %clusterevidence)) { #sort by number of reads
 	if ($clusterevidence{$cluster}[0] eq "contig RM hit") {
 		my $shortname = shortname($cluster);
-		print OUTPUT "$shortname\t$clusterevidence{$cluster}[1]\t\t$clusterevidence{$cluster}[3]\n";
+		print OUTPUT "$shortname\t$clusterevidence{$cluster}[1]\t\t$clusterevidence{$cluster}[4]\t$clusterevidence{$cluster}[5]\t$clusterevidence{$cluster}[3]\n";
 	}
 	elsif ($clusterevidence{$cluster}[0] eq 0) {
 		my $shortname = shortname($cluster);
-		print OUTPUT "$shortname\t$clusterevidence{$cluster}[1]\n";
+		print OUTPUT "$shortname\t$clusterevidence{$cluster}[1]\t\t$clusterevidence{$cluster}[4]\t$clusterevidence{$cluster}[5]\n";
 	}
 	else {
 		my $shortname = shortname($cluster);
