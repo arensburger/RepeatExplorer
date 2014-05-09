@@ -16,7 +16,7 @@ my $datadir; # directory with RE output
 my $outputdirectory; 
 
 GetOptions(
-	'i:s'   => \$datadir,
+	'in:s'   => \$datadir,
 	'o:s'	=> \$outputdirectory
 );
 unless ($datadir and $outputdirectory) {
