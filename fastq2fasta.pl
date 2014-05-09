@@ -65,7 +65,7 @@ while ((my $l1 = <INPUT>) and ($numprinted <= $numberlines)) {
 		print OUTPUT "$l2\n";
 		print OUTPUT ">$l3", '\2', "\n";
 		print OUTPUT "$l4\n";	
-		$numprinted++;
+		$numprinted += 4;
 	}	
 }
 close OUTPUT;
