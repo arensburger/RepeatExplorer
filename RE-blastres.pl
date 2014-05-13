@@ -14,15 +14,17 @@ my $NTDATABASE = "~/db/nt/nt"; # formated for use with blastn
 ### read and check the inputs
 my $datadir; # directory with RE output
 my $outputdirectory; 
+my $fast=0; # if set to anything but 0 do minimal analysis
 
 GetOptions(
 	'in:s'   => \$datadir,
-	'o:s'	=> \$outputdirectory
+	'o:s'	=> \$outputdirectory,
+	'f:s'	=> \$fast
 );
 unless ($datadir and $outputdirectory) {
-	die ("usage: perl RE-blastres -i <RE output directory, REQUIRED> -o <output directory, REQUIRED>");
+	die ("usage: perl RE-blastres -in <RE output directory, REQUIRED> -o <output directory, REQUIRED>, -f <set this if fast analysis is required>");
 }
-`mkdir $outputdirectory`;
+`mkdir -p $outputdirectory`;
 if ($?){
 	die;
 } 
@@ -46,12 +48,19 @@ foreach my $cluster (@clusterdir) {
 
 	#number of reads in the cluster
 	my $totalreads_cluster = `grep -v ">" $cluster/reads.fas -c`;
+	if ($?){ # this is because sometimes reads.fas is not present, don't know why
+		$totalreads_cluster = `grep -v ">" $cluster/reads.fas.masked -c`;
+	} 
 	$totalreads_cluster =~ s/\s//g;
 
 	# count the abundance of classes, need to classify each read individually because the same read can have multiple classes
 	my %readclass; #associates each read to one or more classes
 	my %class; # repeat class ID as key and abundance as value, these are totals
-	open (INPUT, "$cluster/RM-reads.fas.out") or die "cannot open file $cluster/RM-reads.fas.out\n";
+#	open (INPUT, "$cluster/RM-reads.fas.out") or die "cannot open file $cluster/RM-reads.fas.out\n";
+#	open (INPUT, "$cluster/RM-reads.fas.out.out") or die "cannot open file $cluster/RM-reads.fas.out.out\n";
+
+	open (INPUT, "$cluster/RM-reads.fas.out") or (open (INPUT, "$cluster/RM-reads.fas.out.out") or die "cannot open file $cluster/RM-reads.fas.out.out\n"); # this is because sometimes reads.fas.out is reads.fas.out.out, don't know why
+
 	<INPUT>;
 	<INPUT>;
 	<INPUT>;
@@ -90,6 +99,12 @@ foreach my $cluster (@clusterdir) {
 		$clusterevidence{$cluster}[0] = 0;
 		$clusterevidence{$cluster}[1] = $totalreads_cluster;
 	}
+}
+
+# exit analysis here if fast analysis is requested
+if ($fast) {
+	reportdata();
+	exit;
 }
 
 ### Step 2 determine which clusters can be assigned to a category based on contig similarity to known TEs
@@ -226,61 +241,61 @@ foreach my $cluster (keys %clusterevidence) {
 	}
 }
 
-
-### Step 3 report data into excel database
-my $summaryfile = $outputdirectory . "/" . "summary.xls";
-open (OUTPUT, ">$summaryfile") or die "cannot create file $summaryfile\n";
-foreach my $cluster (sort {$clusterevidence{$b}[1] <=> $clusterevidence{$a}[1]} (keys %clusterevidence)) { #sort by number of reads
-	if ($clusterevidence{$cluster}[0] eq "contig RM hit") {
-		my $shortname = shortname($cluster);
-		print OUTPUT "$shortname\t$clusterevidence{$cluster}[1]\t\t$clusterevidence{$cluster}[4]\t$clusterevidence{$cluster}[5]\t$clusterevidence{$cluster}[3]\n";
-	}
-	elsif ($clusterevidence{$cluster}[0] eq 0) {
-		my $shortname = shortname($cluster);
-		print OUTPUT "$shortname\t$clusterevidence{$cluster}[1]\t\t$clusterevidence{$cluster}[4]\t$clusterevidence{$cluster}[5]\n";
-	}
-	else {
-		my $shortname = shortname($cluster);
-		print OUTPUT "$shortname\t$clusterevidence{$cluster}[1]\t$clusterevidence{$cluster}[0]\n";
-	}
-}
-close OUTPUT;
-
-
-### step 4 report overall stats
-my $totreads = (split ' ', `grep "Formatted" $datadir/seqClust/sequences/formatdb.log`)[1]; # total reads in analyis
-my $cluster_abund; # number of reads in clusters
-my $cluster_reads; # number of reads associated with clusters that can be categorised based on read RM
-my $cluster_contigs; # number of reads associated with clusters that can be categorised based on contig blast
-my $num_clusters; # number of clusters
-my $num_clusters_reads; # number of clusters that can be categorized by reads RM
-my $num_clusters_contig; # number of clusters that can be categorized by contigs blast
-
-foreach my $cluster (keys %clusterevidence) {
-	$cluster_abund += $clusterevidence{$cluster}[1];
-	$num_clusters++;
-	if ($clusterevidence{$cluster}[0] eq "contig RM hit") {
-		$cluster_contigs += $clusterevidence{$cluster}[1];
-		$num_clusters_contig++;
-	}
-	elsif ($clusterevidence{$cluster}[0] eq 0) {
-		
-	}
-	else {
-		$cluster_reads += $clusterevidence{$cluster}[1];
-		$num_clusters_reads++;
-	}
-}
-
-my $prop_reads = $cluster_reads/$cluster_abund;
-my $prop_contigs = $cluster_contigs/$cluster_abund;
-print "Number of reads $totreads, reads in clusters $cluster_abund\n";
-print "$prop_reads of cluster reads can be categorized by read RM\n";
-print "$prop_contigs of clusters reads might be categorized by contig blast to RM database\n";
-print "Summary file is in $summaryfile\n";
+reportdata();
 
 
 #### SUBROUTINES ########
+sub reportdata {
+	### Step 3 report data into excel database
+	my $summaryfile = $outputdirectory . "/" . "summary.xls";
+	open (OUTPUT, ">$summaryfile") or die "cannot create file $summaryfile\n";
+	foreach my $cluster (sort {$clusterevidence{$b}[1] <=> $clusterevidence{$a}[1]} (keys %clusterevidence)) { #sort by number of reads
+		if ($clusterevidence{$cluster}[0] eq "contig RM hit") {
+			my $shortname = shortname($cluster);
+			print OUTPUT "$shortname\t$clusterevidence{$cluster}[1]\t\t$clusterevidence{$cluster}[4]\t$clusterevidence{$cluster}[5]\t$clusterevidence{$cluster}[3]\n";
+		}
+		elsif ($clusterevidence{$cluster}[0] eq 0) {
+			my $shortname = shortname($cluster);
+			print OUTPUT "$shortname\t$clusterevidence{$cluster}[1]\t\t$clusterevidence{$cluster}[4]\t$clusterevidence{$cluster}[5]\n";
+		}
+		else {
+			my $shortname = shortname($cluster);
+			print OUTPUT "$shortname\t$clusterevidence{$cluster}[1]\t$clusterevidence{$cluster}[0]\n";
+		}
+	}
+	close OUTPUT;
+
+	### step 4 report overall stats
+	my $totreads = (split ' ', `grep "Formatted" $datadir/seqClust/sequences/formatdb.log`)[1]; # total reads in analyis
+	my $cluster_abund; # number of reads in clusters
+	my $cluster_reads; # number of reads associated with clusters that can be categorised based on read RM
+	my $cluster_contigs; # number of reads associated with clusters that can be categorised based on contig blast
+	my $num_clusters; # number of clusters
+	my $num_clusters_reads; # number of clusters that can be categorized by reads RM
+	my $num_clusters_contig; # number of clusters that can be categorized by contigs blast
+
+	foreach my $cluster (keys %clusterevidence) {
+		$cluster_abund += $clusterevidence{$cluster}[1];
+		$num_clusters++;
+		if ($clusterevidence{$cluster}[0] eq "contig RM hit") {
+			$cluster_contigs += $clusterevidence{$cluster}[1];
+			$num_clusters_contig++;
+		}
+		elsif ($clusterevidence{$cluster}[0] eq 0) {		
+		}
+		else {
+			$cluster_reads += $clusterevidence{$cluster}[1];
+			$num_clusters_reads++;
+		}
+	}
+
+	my $prop_reads = $cluster_reads/$cluster_abund;
+	my $prop_contigs = $cluster_contigs/$cluster_abund;
+	print "Number of reads $totreads, reads in clusters $cluster_abund\n";
+	print "$prop_reads of cluster reads can be categorized by read RM\n";
+	print "$prop_contigs of clusters reads might be categorized by contig blast to RM database\n";
+	print "Summary file is in $summaryfile\n";
+}
 
 #format the class name
 sub classformat {
