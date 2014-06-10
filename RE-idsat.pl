@@ -11,15 +11,13 @@ my $REP_PROP = 0.5; # minimal proportion of contigs with repeats to call cluster
 ### read and check the inputs
 my $datadir; # directory with RE output
 my $outputdirectory; 
-my $fast=0; # if set to anything but 0 do minimal analysis
 
 GetOptions(
 	'in:s'   => \$datadir,
 	'o:s'	=> \$outputdirectory,
-	'f:s'	=> \$fast
 );
 unless ($datadir and $outputdirectory) {
-	die ("usage: perl RE-blastres -in <RE output directory, REQUIRED> -o <output directory, REQUIRED>, -f <set this if fast analysis is required>");
+	die ("usage: perl RE-blastres -in <RE output directory, REQUIRED> -o <output directory, REQUIRED>\n");
 }
 `mkdir -p $outputdirectory`;
 if ($?){
@@ -52,9 +50,9 @@ foreach my $cluster (@clusterdir) {
 	} 
 	my $contig_file = `find $cluster -name "*.minRD5_sort-GR"`;
 	chomp $contig_file;
-	`trf $contig_file 2 7 7 80 10 50 500 -d -h`; 
+	`trf $contig_file 1 1 2 80 5 200 2000 -d -h`; # parameters from paper Melters, Daniël P, Keith R Bradnam, Hugh A Young, Natalie Telis, Michael R May, J Ruby, Robert Sebra, et al. “Comparative Analysis of Tandem Repeats from Hundreds of Species Reveals Unique Insights into Centromere Evolution.” Genome Biology 14, no. 1 (2013): R10. doi:10.1186/gb-2013-14-1-r10.
 	my @data = split("/", $contig_file);
-	my $ouputfile = $data[-1] . ".2.7.7.80.10.50.500.dat";
+	my $ouputfile = $data[-1] . ".1.1.2.80.5.200.2000.dat";
 	
 	my $total_contig_length;
 	my $total_repeated_length;
@@ -111,7 +109,7 @@ foreach my $cluster (@clusterdir) {
 
 # give global output
 my $sat_prop = $sat_reads/$totalreads;
-print "proportion of satellite reads $sat_prop\n";
+print STDERR "proportion of satellite reads $sat_prop\n";
 
 
 
