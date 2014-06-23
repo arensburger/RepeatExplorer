@@ -97,6 +97,12 @@ print LOG datetime, " Filtering low quality reads using fastq_quality_filter wit
 filterbyquality($paired_output, $min_qual, $percent);
 print LOG datetime, " File with paired reads, FASTQ reads: ", count_fastq($paired_output), "\n";
 
+# filter removing overlapping reads
+my $min_overlap = 30;
+print LOG datetime, " Removing read pairs that overlap by at least $min_overlap bp.\n";
+remove_overlaps($paired_output, $min_overlap);
+print LOG datetime, " File with paired reads, FASTQ reads: ", count_fastq($paired_output), "\n";
+
 #print the data files
 my $pairedoutname = $outputdir . "/" . $outputname .  "-paired.fq"; 
 `mv $paired_output $pairedoutname`; 
@@ -182,5 +188,10 @@ sub commify {
     return scalar reverse $text
 }
 
-
+sub remove_overlaps {
+	my ($input_file, $min_overlap) = @_;
+	my $tempdir = File::Temp->newdir();
+	`flash -m $min_overlap -I -d $tempdir $input_file`;
+	`cp $tempdir/out.notCombined.fastq $paired_output`;
+}
 
