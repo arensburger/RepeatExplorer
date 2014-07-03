@@ -99,8 +99,9 @@ print LOG datetime, " File with paired reads, FASTQ reads: ", count_fastq($paire
 
 # filter removing overlapping reads
 my $min_overlap = 30;
+my $max_overlap = 250;
 print LOG datetime, " Removing read pairs that overlap by at least $min_overlap bp.\n";
-remove_overlaps($paired_output, $min_overlap);
+remove_overlaps($paired_output, $min_overlap, $max_overlap);
 print LOG datetime, " File with paired reads, FASTQ reads: ", count_fastq($paired_output), "\n";
 
 #print the data files
@@ -131,19 +132,18 @@ sub filterbyquality {
 	my ($inputfile, $min_qual, $percent) = @_;
 	my $tempout = File::Temp->new( UNLINK => 1, SUFFIX => '.fastq' ); # file that has unpaired sequences
 	
-	`fastq_quality_filter -q $min_qual -p $percent -i $inputfile -o $tempout`;
-
+	`fastq_quality_filter -q $min_qual -p $percent -i $inputfile -o $tempout`; 
 	# remove unpaired sequences and write out paired sequences
 	open (OUTPUT, ">$paired_output") or die;
 	open (INPUT, $tempout) or die "cannot open file $tempout\n";
-	my $l1 = <INPUT>;
+	(my $l1) = split /[\s]+/, <INPUT>, 2; # this matches only the first word of the string, got this from http://stackoverflow.com/questions/4973229/perl-get-first-word-from-input-string
 	my $l2 = <INPUT> . <INPUT> . <INPUT>;
 	while (my $l3 = <INPUT>) {
+		($l3) = split /[\s]+/,  $l3, 2;
 		my $l4 = <INPUT> . <INPUT> . <INPUT>;
-
 		if ($l1 eq $l3) {
-			print OUTPUT $l1, $l2, $l3, $l4;
-			$l1 = <INPUT>;
+			print OUTPUT "$l1\n", $l2, "$l3\n", $l4;
+			($l1) = split /[\s]+/, <INPUT>, 2;
 			$l2 = <INPUT> . <INPUT> . <INPUT>;
 		}
 		else {
@@ -189,9 +189,9 @@ sub commify {
 }
 
 sub remove_overlaps {
-	my ($input_file, $min_overlap) = @_;
+	my ($input_file, $min_overlap, $max_overlap) = @_;
 	my $tempdir = File::Temp->newdir();
-	`flash -m $min_overlap -I -d $tempdir $input_file`;
+	`flash -m $min_overlap -M $max_overlap -I -d $tempdir $input_file`;
 	`cp $tempdir/out.notCombined.fastq $paired_output`;
 }
 
