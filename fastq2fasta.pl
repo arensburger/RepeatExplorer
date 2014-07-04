@@ -15,6 +15,7 @@ my $seqlen;
 my $numberlines;
 my $numprinted=0; # number of sequences printed
 my $randomize=0; # pick random lines in the fastq file
+my $trimsize=0; # size to trim sequences to
 
 #####read and check the inputs
 GetOptions(
@@ -22,11 +23,15 @@ GetOptions(
 	'o:s'	=> \$outputfile,
 	'l:s'	=> \$seqlen,
 	'n:s'   => \$numberlines,
-	'r:s'	=> \$randomize
+	'r:s'	=> \$randomize,
+	't:s'	=> \$trimsize
 );
 
 unless ($inputfile and $outputfile) {
-	die ("usage: perl fastq2fasta -in <REQUIRED fastqfile, paired> -o <REQUIRED ouptput file, default stdout> -l <exact length of output seauences> -n <number of sequences to output from start of file> -r <number of lines to output picked at random from fastq");
+	die ("usage: perl fastq2fasta -in <REQUIRED fastqfile, paired> -o <REQUIRED ouptput file, default stdout> -l <only output sequence of this length> -n <number of sequences to output from start of file> -r <number of lines to output picked at random from fastq -t <size to trim sequences down to starting with 5' end");
+}
+if ($inputfile eq $outputfile) {
+	die "input and output files cannot have the same name\n";
 }
 if ($randomize and $numberlines) {
 	die ("cannot select both -n and -r");
@@ -77,14 +82,34 @@ while ((my $l1 = <INPUT>) and ($numprinted <= $numberlines)) {
 		}
 	}
 	next if $skip;
-	if ($l1 eq $l3) { 
-		if ($seqlen) {
+
+	# test if the pair is intact
+	if ($l1 eq $l3) {
+
+		# test if need to keep only particular length 
+		if ($seqlen) { 
 			if (((length $l2) == $seqlen) and ((length $l4) == $seqlen)) {
 				$printok=1;	
+			}
+			else {
+				$printok=0;
 			}
 		}
 		else {
 			$printok=1;
+		}
+
+		# test if need to trim the sequences
+		if ($trimsize) {
+			if (((length $l2) >= $trimsize) and ((length $l4) >= $trimsize)) {
+				$l2 = substr($l2, 0, $trimsize);
+				$l4 = substr($l4, 0, $trimsize);
+				$printok=1;
+			}
+			else {
+				$printok=0;
+			}
+				
 		}
 	}
 	else {
