@@ -6,7 +6,6 @@ use File::Temp ();
 use Bio::SearchIO;
 use Getopt::Long;
 
-my $REP_PROP = 0.5; # minimal proportion of contigs with repeats to call cluster a satellite
 my $CPU=8;
 
 ### read and check the inputs
@@ -57,7 +56,7 @@ foreach my $cluster (@clusterdir) {
 	my $pfamoutput =  $clusteroutput . "\/" . "pfam_output.txt";
 
 	`transeq $contig_file $translate_output -frame=6 2>&1`; # translate the DNA into 6 frames
-	`~/bin/PfamScan/pfam_scan.pl -fasta $translate_output -dir ~/db/Pfam -pfamB -cpu 8 -outfile $pfamoutput`;
+	`~/bin/PfamScan/pfam_scan.pl -fasta $translate_output -dir ~/db/Pfam -pfamB -cpu $CPU -outfile $pfamoutput`;
 
 	# parse the pfam output	
 	my $numhits; #number of hits
