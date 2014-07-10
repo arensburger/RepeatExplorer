@@ -6,19 +6,34 @@ use File::Temp ();
 use Bio::SearchIO;
 use Getopt::Long;
 
-my $CPU=8;
+my $CPU=16;
+my $pfamB=0; # set to something else than 0 to run on both pfamA and B databases
 
 ### read and check the inputs
 my $datadir; # directory with RE output
 my $outputdirectory; 
+my $file_clusternames;
 
 GetOptions(
 	'in:s'   => \$datadir,
 	'o:s'	=> \$outputdirectory,
+	'b:s'	=> \$pfamB,
+	'f:s'	=> \$file_clusternames
 );
 unless ($datadir and $outputdirectory) {
-	die ("usage: perl RE-runPfam -in <RE output directory, REQUIRED> -o <output directory, REQUIRED>\n");
+	die ("usage: perl RE-runPfam -in <RE output directory, REQUIRED> -o <output directory, REQUIRED> -b <run against pfamB in addition to pfamA -f <file with names of clusters to anlalyse>\n");
 }
+# if list file with list of clusters is provided then populate the names into array
+my %clustertocheck; #names of clusters to check (if any)
+if ($file_clusternames) {
+	open (INPUT, $file_clusternames) or die "cannot open file $file_clusternames\n";
+	while (my $line = <INPUT>) {
+		chomp $line;
+		$clustertocheck{$line} = 0;
+	}
+	clsoe INPUT;
+}
+
 `mkdir -p $outputdirectory`;
 if ($?){
 	die;
@@ -56,7 +71,12 @@ foreach my $cluster (@clusterdir) {
 	my $pfamoutput =  $clusteroutput . "\/" . "pfam_output.txt";
 
 	`transeq $contig_file $translate_output -frame=6 2>&1`; # translate the DNA into 6 frames
-	`~/bin/PfamScan/pfam_scan.pl -fasta $translate_output -dir ~/db/Pfam -pfamB -cpu $CPU -outfile $pfamoutput`;
+	if ($pfamB) {
+		`~/bin/PfamScan/pfam_scan.pl -fasta $translate_output -dir ~/db/Pfam -pfamB -cpu $CPU -outfile $pfamoutput`;
+	}
+	else {
+		`~/bin/PfamScan/pfam_scan.pl -fasta $translate_output -dir ~/db/Pfam -cpu $CPU -outfile $pfamoutput`;
+	}
 
 	# parse the pfam output	
 	my $numhits; #number of hits
