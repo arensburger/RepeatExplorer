@@ -60,17 +60,23 @@ foreach my $cluster (@clusterdir) {
 	#get the cluster short name
 	my $cluster_shortname = shortname($cluster);
 	
-	my $ignorecluster=0; # boolean set to 1 if ignore cluster
+	# tests to see if this cluster should be examined
+	my $ignorecluster=0; # boolean set to 1 if ignore cluster	
+	# check if this cluster is part of list to examine (if provided)
 	if ($file_clusternames) {
 		unless ($clustertocheck{$cluster_shortname}) {
 			$ignorecluster=1;
 		}
 	}
+	# check if the assembly file is empty
+	my $contig_file = `find $cluster -name "*.minRD5_sort-GR"`;
+        chomp $contig_file;
+	if (-z $contig_file) {
+		$ignorecluster=1;
+		print OUTPUT "$cluster_shortname\tNo assembly\tNo assembly\n";
+	}
 	next if($ignorecluster);
 
-	#number of reads in the cluster
-	my $totalreads_cluster = `grep -v ">" $cluster/reads.fas -c`;
-	chomp $totalreads_cluster;
 
 	#create cluster data output directory
 	my $clusteroutput =  $outputdirectory . "\/" . $cluster_shortname;
@@ -78,8 +84,6 @@ foreach my $cluster (@clusterdir) {
 	if ($?){
 		die;
 	} 
-	my $contig_file = `find $cluster -name "*.minRD5_sort-GR"`;
-	chomp $contig_file;
 
 	### run the pfams
 	my $translate_output = File::Temp->new( UNLINK => 1, SUFFIX => '.fa' );
@@ -108,7 +112,7 @@ foreach my $cluster (@clusterdir) {
 		}
 	}
 	close INPUT;
-	my $hits;
+	my $hits; # list of hits
 	foreach my $key (sort { $hmmname{$b} <=> $hmmname{$a} } (keys %hmmname)) {
 		my $proportion = $hmmname{$key}/$numhits;
 		my $percent = prop2percent($proportion) . "%";
@@ -130,14 +134,21 @@ foreach my $cluster (@clusterdir) {
                 }
         }
         close INPUT;
-        my $REPEThits;
+        my $REPEThits; # name of hits
         foreach my $key (sort { $hmmname{$b} <=> $hmmname{$a} } (keys %hmmname)) {
                 my $proportion = $hmmname{$key}/$numhits;
                 my $percent = prop2percent($proportion) . "%";
                 $REPEThits .= "$key($percent) ";
         }
 
-	print OUTPUT "$cluster_shortname\t$hits\t$REPEThits\n"; 
+	# print output setting N/A if values are empty
+	unless ($hits) {
+		$hits = "N/A";
+	}
+	unless ($REPEThits) {
+		$REPEThits = "N/A";
+	}
+	print OUTPUT "$cluster_shortname\t$hits\t$REPEThits\n";
 }
 
 # get the short name of the cluster
