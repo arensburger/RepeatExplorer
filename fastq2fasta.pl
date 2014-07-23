@@ -28,7 +28,8 @@ GetOptions(
 );
 
 unless ($inputfile and $outputfile) {
-	die ("usage: perl fastq2fasta -in <REQUIRED fastqfile, paired> -o <REQUIRED ouptput file, default stdout> -l <only output sequence of this length> -n <number of sequences to output from start of file> -r <number of lines to output picked at random from fastq -t <size to trim sequences down to starting with 5' end");
+	print "purpose: convert fastq files to fasta, with particular emphasis on use with RepeatExplorer\nusage: perl fastq2fasta\n\t-in <REQUIRED fastqfile, paired>\n\t-o <REQUIRED ouptput file>\n\t-l <only output sequence of this length>\n\t-n <number of sequences to output from start of file>\n\t-r <number of lines to output picked at random from fastq>\n\t-t <size to trim sequences down to starting with 5' end>\n";
+	exit;
 }
 if ($inputfile eq $outputfile) {
 	die "input and output files cannot have the same name\n";
