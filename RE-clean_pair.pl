@@ -15,7 +15,7 @@ use Getopt::Long;
 use File::Path;
 
 # File path
-my $TRIMMOMATIC_PATH = "/home/parensburge/RNAseq-clean/Trimmomatic-0.32"; # java program location, this is required by Trimmomatic, needs full path name
+my $TRIMMOMATIC_PATH = "/home/arensburger/scripts/RepeatExplorer/Trimmomatic-0.32"; # java program location, this is required by Trimmomatic, needs full path name
 
 #return date and time, must be placed at the start, not end of script
 sub datetime {
@@ -128,7 +128,8 @@ sub filterbyquality {
 	my ($inputfile, $min_qual, $percent) = @_;
 	my $tempout = File::Temp->new( UNLINK => 1, SUFFIX => '.fastq' ); # file that has unpaired sequences
 	
-	`fastq_quality_filter -q $min_qual -p $percent -i $inputfile -o $tempout`; 
+#        `fastq_quality_filter -q $min_qual -p $percent -i $inputfile -o $tempout`; # use this line if Illumina encoding
+	`fastq_quality_filter -q $min_qual -p $percent -i $inputfile -o $tempout -Q33`; # use this line if Sanger encoding
 	# remove unpaired sequences and write out paired sequences
 	open (OUTPUT, ">$paired_output") or die;
 	open (INPUT, $tempout) or die "cannot open file $tempout\n";
