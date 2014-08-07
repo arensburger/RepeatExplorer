@@ -15,7 +15,7 @@ use Getopt::Long;
 use File::Path;
 
 # File path
-my $TRIMMOMATIC_PATH = "/home/arensburger/scripts/RepeatExplorer/Trimmomatic-0.32"; # java program location, this is required by Trimmomatic, needs full path name
+my $TRIMMOMATIC_PATH = "/home/parensburge/RepeatExplorer/Trimmomatic-0.32"; # java program location, this is required by Trimmomatic, needs full path name
 
 #return date and time, must be placed at the start, not end of script
 sub datetime {
@@ -79,9 +79,14 @@ print LOG datetime, " File $readspair1, total FASTQ reads: ", count_fastq($reads
 print LOG datetime, " File $readspair2, total FASTQ reads: ", count_fastq($readspair2), "\n"; # do a basic count
 print LOG "\n";
 
+# remove short reads
+print LOG datetime, " Removing reads shorter than $minlen bases for either member of the pair\n";
+my($file1, $file2, $number_removed) = rmfastqshort($readspair1, $readspair2, $minlen);
+print LOG datetime, " Removed $number_removed sequences\n\n";
+
 #clip adapters
 print LOG datetime, " Clipping adapters and quality filter with Trimmomatic\n";
-clipadapters($readspair1, $readspair2);
+clipadapters($file1, $file2);
 print LOG datetime, " File with paired reads, FASTQ reads: ", count_fastq($paired_output), "\n"; 
 print LOG datetime, " File with unpaired reads, FASTQ reads: ", count_fastq($unpaired_output), "\n";
 print LOG "\n";
@@ -160,7 +165,7 @@ sub clipadapters {
 	my $forward_unpaired = File::Temp->new( UNLINK => 1, SUFFIX => '.fastq' );
 	my $reverse_unpaired = File::Temp->new( UNLINK => 1, SUFFIX => '.fastq' ); 
 
-	`java -jar $TRIMMOMATIC_PATH/trimmomatic-0.32.jar PE -threads $threads -phred33 $inputfile1 $inputfile2 $forward_paired $forward_unpaired $reverse_paired $reverse_unpaired ILLUMINACLIP:$TRIMMOMATIC_PATH/illuminaClipping.fa:2:30:10 `;
+	`java -jar $TRIMMOMATIC_PATH/trimmomatic-0.32.jar PE -threads $threads -phred33 $inputfile1 $inputfile2 $forward_paired $forward_unpaired $reverse_paired $reverse_unpaired ILLUMINACLIP:$TRIMMOMATIC_PATH/illuminaClipping.fa:2:30:10`;
 #SLIDINGWINDOW:4:15 LEADING:3 TRAILING:3 MINLEN:$minlen	
 	#merge the files
 	open (INPUT1, $forward_paired) or die;
@@ -191,5 +196,42 @@ sub remove_overlaps {
 	my $tempdir = File::Temp->newdir();
 	`flash -m $min_overlap -M $max_overlap -I -d $tempdir $input_file`;
 	`cp $tempdir/out.notCombined.fastq $paired_output`;
+}
+
+# remove short sequences
+sub rmfastqshort {
+	my ($inputfile1, $inputfile2, $minlength) = @_;
+
+	my $number_sequences_removed;
+
+	open (INPUT1, $inputfile1) or die;
+	open (INPUT2, $inputfile2) or die;
+	
+	my $shortfile1 = File::Temp->new( UNLINK => 1, SUFFIX => '.fastq' ); # temporary data storage
+	my $shortfile2 = File::Temp->new( UNLINK => 1, SUFFIX => '.fastq' ); # temporary data storage
+	open (S1, ">$shortfile1") or die;
+	open (S2, ">$shortfile2") or die;
+
+	while (my $line = <INPUT1>) {
+		my $l1 = <INPUT1>;
+		my $seq1 = $line . $l1 . <INPUT1> . <INPUT1>;
+		my $seq2 = <INPUT2>;
+		my $l2 = <INPUT2>;
+		$seq2 .= $l2 . <INPUT2> . <INPUT2>;
+
+		if ((length($l1) >= $minlength) and (length($l2) >= $minlength)) {
+			print S1 "$seq1";
+			print S2 "$seq2";
+		}
+		else {
+			$number_sequences_removed++;
+		}
+	}	
+	close S1;
+	close S2;
+	close INPUT1;
+	close INPUT2;
+	
+	return ($shortfile1, $shortfile2, $number_sequences_removed); 
 }
 
