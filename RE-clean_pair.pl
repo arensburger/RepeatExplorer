@@ -79,7 +79,7 @@ print LOG datetime, " File $readspair1, total FASTQ reads: ", count_fastq($reads
 print LOG datetime, " File $readspair2, total FASTQ reads: ", count_fastq($readspair2), "\n"; # do a basic count
 print LOG "\n";
 
-# remove short reads
+# remove short reads (necessary because trimmomatic crashes with very short reads
 print LOG datetime, " Removing reads shorter than $minlen bases for either member of the pair\n";
 my($file1, $file2, $number_removed) = rmfastqshort($readspair1, $readspair2, $minlen);
 print LOG datetime, " Removed $number_removed sequences\n\n";
@@ -165,7 +165,7 @@ sub clipadapters {
 	my $forward_unpaired = File::Temp->new( UNLINK => 1, SUFFIX => '.fastq' );
 	my $reverse_unpaired = File::Temp->new( UNLINK => 1, SUFFIX => '.fastq' ); 
 
-	`java -jar $TRIMMOMATIC_PATH/trimmomatic-0.32.jar PE -threads $threads -phred33 $inputfile1 $inputfile2 $forward_paired $forward_unpaired $reverse_paired $reverse_unpaired ILLUMINACLIP:$TRIMMOMATIC_PATH/illuminaClipping.fa:2:30:10`;
+	`java -jar $TRIMMOMATIC_PATH/trimmomatic-0.32.jar PE -threads $threads -phred33 $inputfile1 $inputfile2 $forward_paired $forward_unpaired $reverse_paired $reverse_unpaired ILLUMINACLIP:$TRIMMOMATIC_PATH/illuminaClipping.fa:2:30:10 MINLEN:$minlen`;
 #SLIDINGWINDOW:4:15 LEADING:3 TRAILING:3 MINLEN:$minlen	
 	#merge the files
 	open (INPUT1, $forward_paired) or die;
