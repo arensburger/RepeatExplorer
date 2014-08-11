@@ -8,14 +8,18 @@ use String::ShellQuote;
 my $manual_annotation_file; # manual annotation file csv
 my $REdirectory; # Repeat Explorer output directory name
 my $outputfile; # ouput file
+my $clusterabundancefile; # alternative to the REdirectory, this could be the output of RE-readspercluster.pl
+my $totreads; # total reads in the analyis
 
 GetOptions(
 	'm:s'   => \$manual_annotation_file,
 	'r:s'	=> \$REdirectory,
+	'f:s'	=> \$clusterabundancefile,
+	't:s'	=> \$totreads,
 	'o:s'	=> \$outputfile,
 );
-unless ($manual_annotation_file and $REdirectory and $outputfile) {
-	print "usage: perl calcpercentage\n\t-m <REQUIRED, manual annotation file as a CSV file>\n\t-r <REQUIRED, Repeat Explorer output directory>\n\t-o <REQUIRED, output file name>\n\nNote: cannot use spaces in directory names because is screws up the find command, something that needs to be fixed\n";
+unless (($manual_annotation_file and $outputfile) and ($REdirectory or $clusterabundancefile))  {
+	print "usage: perl calcpercentage\n\t-m <REQUIRED, manual annotation file as a CSV file>\n\t-r <Repeat Explorer output directory>\n\t-f <tab delimited file with cluster abundance, alternative to  RE output directory>\n\t-t <total number of reads>\n\t-o <REQUIRED, output file name>\n\nNote: cannot use spaces in directory names because is screws up the find command, something that needs to be fixed\n";
 }
 
 ### Global variables ###
@@ -24,14 +28,24 @@ my %categorienumbers; # repeat category names as key and cluster read abundance 
 my %clusternumbers; # repeat category names as key and number of clusters as value
 
 # read the number of reads in each cluster
-my @clusterdir = split (" ", `find $REdirectory/seqClust/clustering/clusters/ -name "dir_*"`);
-foreach my $cluster (@clusterdir) {
-	my $totalreads_cluster = `grep -v ">" $cluster/reads.fas -c`;
-	$readnumbers{shortname($cluster)} = $totalreads_cluster;
+if ($REdirectory) {
+	my @clusterdir = split (" ", `find $REdirectory/seqClust/clustering/clusters/ -name "dir_*"`);
+	foreach my $cluster (@clusterdir) {
+		my $totalreads_cluster = `grep -v ">" $cluster/reads.fas -c`;
+		$readnumbers{shortname($cluster)} = $totalreads_cluster;
+	}
+	$totreads = (split ' ', `grep "Formatted" $REdirectory/seqClust/sequences/formatdb.log`)[1]; # total reads in analyis
 }
-
-# get the number of reads in the analysis
-my $totreads = (split ' ', `grep "Formatted" $REdirectory/seqClust/sequences/formatdb.log`)[1]; # total reads in analyis
+elsif ($clusterabundancefile) {
+	open (INPUT, "$clusterabundancefile") or die "cannot open cluster abundance file $clusterabundancefile\n";
+	while (my $line = <INPUT>) {
+		my @data = split (" ", $line);
+		$readnumbers{$data[0]} = $data[1];
+	}
+}
+else {
+	die "ERROR, no cluster abundance provided\n";
+}
 
 # read the manual annotation and populate the %categorienumbers hash
 my $csv = Text::CSV->new({ sep_char => ',' }); # create the CSV object
