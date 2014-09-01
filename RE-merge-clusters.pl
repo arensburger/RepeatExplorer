@@ -34,8 +34,8 @@ my $filename = "$config{in}/summary/merge_cutoff" . $config{cutoff} . "/mate_pai
 open (FILE, "$filename") or die "cannot open file $filename\n";
 while (my $line = <FILE>) {
 	if ($line =~ /^<p\sclass='character'>CL\d+&nbsp;.+<\/p>/) {
-		while ($line =~ /(CL\d+)/g) {
-			print OUTPUT "$1\t";
+		while ($line =~ /CL(\d+)/g) {
+			print OUTPUT "$1 ";
 		}
 		print OUTPUT "\n";
 	}
