@@ -3,7 +3,7 @@
 
 use strict;
 use File::Temp ();
-use Bio::SearchIO;
+#use Bio::SearchIO;
 use Getopt::Long;
 
 my $PROPDIV = 10; # when reporting global ouput number of divisions in satellite proportion
