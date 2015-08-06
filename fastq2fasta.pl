@@ -54,6 +54,7 @@ if ($randomize) {
 	for (my $i=0; $i<$randomize; $i++) {
 		$seqstoprint{$randseqnum[$i]}=0;
 	}
+	$numberlines = ($randomize * 2) - 1;
 }
 
 open OUTPUT, ">$outputfile" or die "cannot open $outputfile for writting\n";
@@ -61,6 +62,7 @@ open OUTPUT, ">$outputfile" or die "cannot open $outputfile for writting\n";
 ###### produce data
 my $seqnum=-1;
 open (INPUT, $inputfile) or die "cannot open input file $inputfile\n";
+
 while ((my $l1 = <INPUT>) and ($numprinted <= $numberlines)) {
 	$seqnum++;
 	$l1 =~ s/(@)|(\s)//g; 
